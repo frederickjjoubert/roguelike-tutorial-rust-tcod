@@ -12,11 +12,12 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="fbfffaf1-54ce-483c-ae3f-00c9f64b94df" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/roguelike.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+    <list default="true" id="fbfffaf1-54ce-483c-ae3f-00c9f64b94df" name="Changes" comment="player and npc rendering, can move player">
+      <change afterPath="$PROJECT_DIR$/src/game.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/tile.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/gameobject.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/gameobject.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -25,6 +26,13 @@
   </component>
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -86,8 +94,17 @@
       <option name="presentableId" value="Default" />
       <updated>1658102349576</updated>
       <workItem from="1658102350722" duration="68000" />
-      <workItem from="1658200488470" duration="608000" />
+      <workItem from="1658200488470" duration="5401000" />
+      <workItem from="1658262669829" duration="2049000" />
     </task>
+    <task id="LOCAL-00001" summary="player and npc rendering, can move player">
+      <created>1658204903300</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1658204903300</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -103,5 +120,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="player and npc rendering, can move player" />
+    <option name="LAST_COMMIT_MESSAGE" value="player and npc rendering, can move player" />
   </component>
 </project>
