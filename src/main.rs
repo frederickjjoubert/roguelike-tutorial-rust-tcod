@@ -1,11 +1,12 @@
-mod gameobject;
+mod game_object;
 mod tile;
 mod game;
+mod rect;
 
 use tcod::colors::*;
 use tcod::console::*;
 use crate::game::*;
-use crate::gameobject::*;
+use crate::game_object::*;
 
 const SCREEN_WIDTH: i32 = 80;
 const SCREEN_HEIGHT: i32 = 50;
@@ -24,7 +25,7 @@ struct Tcod {
     console: Offscreen, // This represents the map only.
 }
 
-fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut gameobject::GameObject) -> bool {
+fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut GameObject) -> bool {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
 
@@ -49,10 +50,10 @@ fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut gameobject::GameObject
     false
 }
 
-fn render_all(tcod: &mut Tcod, game: &Game, gameobjects: &[GameObject]) {
+fn render_all(tcod: &mut Tcod, game: &Game, game_objects: &[GameObject]) {
     // draw all the objects in the list:
-    for gameobject in gameobjects {
-        gameobject.draw(&mut tcod.console);
+    for game_object in game_objects {
+        game_object.draw(&mut tcod.console);
     }
 
     // go through all tiles, and set their background color:
@@ -86,17 +87,15 @@ fn main() {
         .size(SCREEN_WIDTH, SCREEN_HEIGHT)
         .title("Rusty Roguelike")
         .init();
-
     let console = Offscreen::new(MAP_WIDTH, MAP_HEIGHT);
 
     let mut tcod = Tcod { root, console };
-
     tcod::system::set_fps(FPS_LIMIT);
 
-    let player = gameobject::GameObject::new(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, '@', WHITE);
-    let npc = gameobject::GameObject::new(SCREEN_WIDTH / 2 - 5, SCREEN_HEIGHT / 2, '@', YELLOW);
-
-    let mut gameobjects = [player, npc];
+    // place the player and add these game objects to the game objects list.
+    let player = GameObject::new(25, 23, '@', WHITE);
+    let npc = GameObject::new(27, 23, '@', YELLOW);
+    let mut game_objects = [player, npc];
 
     let game = Game {
         // generate map (at this point it's not drawn to the screen)
@@ -108,11 +107,11 @@ fn main() {
         tcod.console.set_default_foreground(WHITE); // Draw everything as WHITE.
         tcod.console.clear(); // Clear the console from the previous frame.
 
-        render_all(&mut tcod, &game, &gameobjects);
+        render_all(&mut tcod, &game, &game_objects);
 
         tcod.root.flush(); // Draw everything at once.
         tcod.root.wait_for_keypress(true);
-        let player = &mut gameobjects[0];
+        let player = &mut game_objects[0];
         let exit = handle_keys(&mut tcod, &game, player);
         if exit { break; }
     }
