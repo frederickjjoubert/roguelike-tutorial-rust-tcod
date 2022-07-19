@@ -1,5 +1,3 @@
-
-
 // A rectangle on the the map used for rooms
 #[derive(Clone, Copy, Debug)]
 pub struct Rect {
@@ -26,7 +24,7 @@ impl Rect {
     }
 
     pub fn intersects_with(&self, other: &Rect) -> bool {
-        (self.x1 <= other.x1)
+        (self.x1 <= other.x2)
             && (self.x2 >= other.x1)
             && (self.y1 <= other.y2)
             && (self.y2 >= other.y1)

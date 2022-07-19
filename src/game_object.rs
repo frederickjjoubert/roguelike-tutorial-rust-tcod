@@ -6,8 +6,8 @@ use crate::Game;
 // It's always represented by a character on screen.
 #[derive(Debug)]
 pub struct GameObject {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
     char: char,
     color: Color,
 }

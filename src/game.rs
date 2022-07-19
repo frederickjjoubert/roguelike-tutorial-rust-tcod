@@ -1,6 +1,6 @@
 use std::cmp;
 use rand::Rng;
-use crate::{MAP_HEIGHT, MAP_WIDTH};
+use crate::{GameObject, MAP_HEIGHT, MAP_WIDTH};
 use crate::tile::*;
 use crate::rect::*;
 
@@ -14,7 +14,7 @@ pub struct Game {
     pub map: Map,
 }
 
-pub fn make_map() -> Map {
+pub fn make_map(player: &mut GameObject) -> Map {
     // fill the map with blocked tiles.
     // The vec! macro is a shortcut that creates a Vec and fills it with values. For example, vec!['a'; 42] would create a Vec containing the letter 'a' 42 times. We do the same trick above to build a column of tiles and then build the map of those columns.
     let width = MAP_WIDTH as usize;
@@ -22,12 +22,50 @@ pub fn make_map() -> Map {
     let tile = Tile::wall();
     let mut map = vec![vec![tile; height]; width];
 
+    // rooms
+    let mut rooms = vec![];
+
+    for _ in 0..MAX_ROOMS {
+        // random width & height
+        let w = rand::thread_rng().gen_range(ROOM_MIN_SIZE, ROOM_MAX_SIZE + 1);
+        let h = rand::thread_rng().gen_range(ROOM_MIN_SIZE, ROOM_MAX_SIZE + 1);
+        // random location
+        let x = rand::thread_rng().gen_range(0, MAP_WIDTH - w);
+        let y = rand::thread_rng().gen_range(0, MAP_HEIGHT - h);
+        // create room
+        let new_room = Rect::new(x, y, w, h);
+        // check if it intersects with any other room, and if not, add it to rooms vec
+        let intersects = rooms
+            .iter()
+            .any(|other_room| new_room.intersects_with(other_room));
+        if !intersects {
+            create_room(new_room, &mut map);
+            // this will be useful later
+            let (new_x, new_y) = new_room.center();
+
+            if rooms.is_empty() {
+                // special case, place player in the first room
+                player.x = new_x;
+                player.y = new_y;
+            } else {
+                // connect to previous room with a tunnel
+                let (prev_x, prev_y) = rooms[rooms.len() - 1].center();
+
+                if rand::random() {
+                    create_h_tunnel(prev_x, new_x, prev_y, &mut map);
+                    create_v_tunnel(prev_y, new_y, new_x, &mut map);
+                } else {
+                    create_v_tunnel(prev_y, new_y, prev_x, &mut map);
+                    create_h_tunnel(prev_x, new_x, new_y, &mut map);
+                }
+            }
+
+            rooms.push(new_room)
+        }
+    }
+
     // generate rooms
-    let room_1 = Rect::new(20, 15, 10, 15);
-    let room_2 = Rect::new(50, 15, 10, 15);
-    create_room(room_1, &mut map);
-    create_room(room_2, &mut map);
-    create_h_tunnel(25, 55, 23, &mut map);
+
 
     map
 }

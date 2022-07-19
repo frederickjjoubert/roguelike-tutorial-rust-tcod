@@ -99,7 +99,7 @@ fn main() {
 
     let game = Game {
         // generate map (at this point it's not drawn to the screen)
-        map: make_map(),
+        map: make_map(&mut game_objects[0]),
     };
 
     // Game Loop
