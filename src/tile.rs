@@ -3,6 +3,7 @@
 pub struct Tile {
     pub blocked: bool,
     pub block_sight: bool,
+    pub explored: bool,
 }
 
 impl Tile {
@@ -10,6 +11,7 @@ impl Tile {
         Tile {
             blocked: false,
             block_sight: false,
+            explored: false,
         }
     }
 
@@ -17,20 +19,7 @@ impl Tile {
         Tile {
             blocked: true,
             block_sight: true,
-        }
-    }
-
-    pub fn chasm() -> Self {
-        Tile {
-            blocked: true,
-            block_sight: false,
-        }
-    }
-
-    pub fn hidden_passage() -> Self {
-        Tile {
-            blocked: false,
-            block_sight: true,
+            explored: false,
         }
     }
 }

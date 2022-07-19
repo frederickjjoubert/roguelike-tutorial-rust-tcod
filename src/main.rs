@@ -41,25 +41,29 @@ fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut GameObject) -> bool {
     let key = tcod.root.wait_for_keypress(true);
 
     match key {
+        // Fullscreen
+        Key { code: Enter, alt: true, .. } => {
+            let fullscreen = tcod.root.is_fullscreen();
+            tcod.root.set_fullscreen(!fullscreen);
+        }
+        // Exit
+        Key { code: Escape, .. } => {
+            return true;
+        }
         // Movement Keys
         Key { code: Up, .. } => player.move_by(0, -1, game), // The two dots at the end mean "I don’t care about the other fields". If it wasn’t there, it would not compile until you specified values for every field of the Key struct.
         Key { code: Down, .. } => player.move_by(0, 1, game),
         Key { code: Left, .. } => player.move_by(-1, 0, game),
         Key { code: Right, .. } => player.move_by(1, 0, game),
-        Key { code: Enter, alt: true, .. } => {
-            let fullscreen = tcod.root.is_fullscreen();
-            tcod.root.set_fullscreen(!fullscreen);
-        }
-        Key { code: Escape, .. } => {
-            return true;
-        }
+
+        // Everything else
         _ => {} // This means "everything else" => "nothing happens"
     }
 
     false
 }
 
-fn render_all(tcod: &mut Tcod, game: &Game, game_objects: &[GameObject], recompute_fov: bool) {
+fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], recompute_fov: bool) {
     // recompute FOV if needed
     if recompute_fov {
         let player = &game_objects[0];
@@ -83,7 +87,15 @@ fn render_all(tcod: &mut Tcod, game: &Game, game_objects: &[GameObject], recompu
                 (true, false) => COLOR_LIGHT_GROUND
             };
 
-            tcod.console.set_char_background(x, y, color, BackgroundFlag::Set);
+            let explored = &mut game.map[x_index][y_index].explored;
+            if visible {
+                // if it's visible, mark it as explored
+                *explored = true;
+            }
+            if *explored {
+                // show explored tiles only
+                tcod.console.set_char_background(x, y, color, BackgroundFlag::Set);
+            }
         }
 
         // draw all the objects in the list that are within the FOV:
@@ -128,7 +140,7 @@ fn main() {
     let npc = GameObject::new(27, 23, '@', YELLOW);
     let mut game_objects = [player, npc];
 
-    let game = Game {
+    let mut game = Game {
         // generate map (at this point it's not drawn to the screen)
         map: make_map(&mut game_objects[0]),
     };
@@ -150,15 +162,18 @@ fn main() {
 
     // Game Loop
     while !tcod.root.window_closed() {
-        tcod.console.set_default_foreground(WHITE); // Draw everything as WHITE.
-        tcod.console.clear(); // Clear the console from the previous frame.
+        // Clear the console from the previous frame.
+        tcod.console.clear();
 
+        // Render the screen and recompute FOV if needed.
         let player = &game_objects[0];
         let fov_recompute = previous_player_position != (player.x, player.y);
-        render_all(&mut tcod, &game, &game_objects, fov_recompute);
+        render_all(&mut tcod, &mut game, &game_objects, fov_recompute);
 
-        tcod.root.flush(); // Draw everything at once.
-        tcod.root.wait_for_keypress(true);
+        // Draw everything at once.
+        tcod.root.flush();
+
+        // Handle Input and Exit if needed.
         let player = &mut game_objects[0];
         previous_player_position = (player.x, player.y);
         let exit = handle_keys(&mut tcod, &game, player);
