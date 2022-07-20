@@ -1,6 +1,6 @@
 use tcod::colors::*;
 use tcod::console::*;
-use crate::Game;
+use crate::{Game, PLAYER};
 use crate::Map;
 
 // This is a generic object: the player, a monster, an item, the stairs...
@@ -50,6 +50,31 @@ pub fn move_by(index: usize, dx: i32, dy: i32, map: &Map, game_objects: &mut [Ga
     let can_move = !is_blocked(x + dx, y + dy, map, game_objects);
     if can_move {
         game_objects[index].set_position(x + dx, y + dy);
+    }
+}
+
+pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, game_objects: &mut [GameObject]) {
+    let (x, y) = game_objects[PLAYER].get_position();
+    let (x, y) = (x + dx, y + dy);
+
+    // check for attackable game_object at destination
+    // The position method on an iterator runs a test on each object
+    // and as soon as it finds one, it returns its index in the collection
+    // (in our case a vec of GameObject).
+    // Notice: It’s possible no match will be found, so it actually returns Option<usize> here.
+    let target_index = game_objects.iter().position(|game_object| game_object.get_position() == (x, y));
+
+    // attack if target found, else try to move
+    match target_index {
+        Some(target_index) => {
+            println!(
+                "The {} laughs at your puny attempt to attack!",
+                game_objects[target_index].name
+            );
+        }
+        None => {
+            move_by(PLAYER, dx, dy, &game.map, game_objects);
+        }
     }
 }
 

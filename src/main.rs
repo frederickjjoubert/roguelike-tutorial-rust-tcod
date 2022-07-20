@@ -57,21 +57,21 @@ fn handle_keys(tcod: &mut Tcod, game: &Game, game_objects: &mut [GameObject]) ->
         }
         // Movement Keys
         (Key { code: Up, .. }, _, player_alive) => {
-            move_by(PLAYER, 0, -1, &game.map, game_objects);
+            player_move_or_attack(0, -1, &game, game_objects);
             TookTurn
         }
         // The two dots at the end mean "I don’t care about the other fields".
         // If it wasn’t there, it would not compile until you specified values for every field of the Key struct.
         (Key { code: Down, .. }, _, player_alive) => {
-            move_by(PLAYER, 0, 1, &game.map, game_objects);
+            player_move_or_attack(0, 1, &game, game_objects);
             TookTurn
         }
         (Key { code: Left, .. }, _, player_alive) => {
-            move_by(PLAYER, -1, 0, &game.map, game_objects);
+            player_move_or_attack(-1, 0, &game, game_objects);
             TookTurn
         }
         (Key { code: Right, .. }, _, player_alive) => {
-            move_by(PLAYER, 1, 0, &game.map, game_objects);
+            player_move_or_attack(1, 0, &game, game_objects);
             TookTurn
         }
 
@@ -193,7 +193,22 @@ fn main() {
 
         // Handle Input and Exit if needed.
         previous_player_position = game_objects[PLAYER].get_position();
-        let exit = handle_keys(&mut tcod, &game, &mut game_objects);
-        if exit == PlayerAction::Exit { break; }
+        // player turn
+        let player_action = handle_keys(&mut tcod, &game, &mut game_objects);
+        if player_action == PlayerAction::Exit { break; }
+
+        if game_objects[PLAYER].alive && player_action != PlayerAction::DidntTakeTurn {
+            // monsters take their turn
+            for game_object in &game_objects {
+                // only if object is not the player.
+                // The as *const _ bit is there to do a pointer comparison.
+                // Rust’s equality operators (== and !=) test for value equality,
+                // but we haven’t implemented that for Object and we don’t care anyway,
+                // we just want to make sure to not process player here.
+                if (game_object as *const _) != (&game_objects[PLAYER] as *const _) {
+                    println!("The {} growls!", game_object.name);
+                }
+            }
+        }
     }
 }
