@@ -1,7 +1,7 @@
 use std::cmp;
 use rand::Rng;
 use tcod::colors;
-use crate::{Ai, Fighter, GameObject, is_blocked, MAP_HEIGHT, MAP_WIDTH, move_toward, PLAYER, Tcod};
+use crate::{Ai, DeathCallback, Fighter, GameObject, is_blocked, MAP_HEIGHT, MAP_WIDTH, move_toward, PLAYER, Tcod};
 use crate::tile::*;
 use crate::rect::*;
 
@@ -135,6 +135,7 @@ fn place_objects(room: Rect, map: &Map, game_objects: &mut Vec<GameObject>) {
                     hp: 10,
                     defense: 0,
                     power: 3,
+                    on_death: DeathCallback::Monster,
                 });
                 orc.ai = Some(Ai::Basic);
                 orc
@@ -146,6 +147,7 @@ fn place_objects(room: Rect, map: &Map, game_objects: &mut Vec<GameObject>) {
                     hp: 16,
                     defense: 1,
                     power: 4,
+                    on_death: DeathCallback::Monster,
                 });
                 troll.ai = Some(Ai::Basic);
                 troll
@@ -166,11 +168,23 @@ pub fn ai_take_turn(monster_index: usize, tcod: &Tcod, game: &Game, game_objects
             move_toward(monster_index, player_x, player_y, &game.map, game_objects);
         } else if game_objects[PLAYER].fighter.map_or(false, |fighter| fighter.hp > 0) {
             // close enough and player is alive
-            let monster = &game_objects[monster_index];
-            println!(
-                "The attack of the evil {} bounces off your shiny metal armor!", monster.name
-            );
+            let (monster, player) = mut_two(monster_index, PLAYER, game_objects);
+            monster.attack(player);
         }
+    }
+}
+
+// Need this to allow monster to attack
+// see https://tomassedovic.github.io/roguelike-tutorial/part-6-going-berserk.html
+// not sure if this is just a hack or not...
+pub fn mut_two<T>(first_index: usize, second_index: usize, items: &mut [T]) -> (&mut T, &mut T) {
+    assert!(first_index != second_index);
+    let split_at_index = cmp::max(first_index, second_index);
+    let (first_slice, second_slice) = items.split_at_mut(split_at_index);
+    if first_index < second_index {
+        (&mut first_slice[first_index], &mut second_slice[0])
+    } else {
+        (&mut second_slice[0], &mut first_slice[second_index])
     }
 }
 

@@ -13,8 +13,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fbfffaf1-54ce-483c-ae3f-00c9f64b94df" name="Changes" comment="player and npc rendering, can move player">
-      <change afterPath="$PROJECT_DIR$/src/fighter.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/fighter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/fighter.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/game.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/game_object.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/game_object.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
@@ -97,7 +97,7 @@
       <workItem from="1658102350722" duration="68000" />
       <workItem from="1658200488470" duration="5401000" />
       <workItem from="1658262669829" duration="17499000" />
-      <workItem from="1658353883384" duration="2833000" />
+      <workItem from="1658353883384" duration="6644000" />
     </task>
     <task id="LOCAL-00001" summary="player and npc rendering, can move player">
       <created>1658204903300</created>

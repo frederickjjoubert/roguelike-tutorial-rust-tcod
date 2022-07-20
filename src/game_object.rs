@@ -1,8 +1,9 @@
 use tcod::colors::*;
 use tcod::console::*;
-use crate::{Game, PLAYER};
+use crate::PLAYER;
 use crate::Map;
 use crate::fighter::*;
+use crate::game::*;
 
 // This is a generic object: the player, a monster, an item, the stairs...
 // It's always represented by a character on screen.
@@ -33,8 +34,9 @@ impl GameObject {
             ai: None,
         }
     }
-
-    pub fn draw(&self, console: &mut dyn Console) { // The dyn keyword in &mut dyn Console highlights that Console is a trait and not a concrete type (such as a struct or enum).
+    // The dyn keyword in &mut dyn Console highlights that Console is a trait
+    // and not a concrete type (such as a struct or enum).
+    pub fn draw(&self, console: &mut dyn Console) {
         console.set_default_foreground(self.color);
         console.put_char(self.x, self.y, self.char, BackgroundFlag::None)
     }
@@ -52,6 +54,38 @@ impl GameObject {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
+    }
+
+    pub fn take_damage(&mut self, damage: i32) {
+        if let Some(fighter) = self.fighter.as_mut() {
+            if damage > 0 {
+                fighter.hp -= damage
+            }
+        }
+        if let Some(fighter) = self.fighter {
+            if fighter.hp <= 0 {
+                self.alive = false;
+                fighter.on_death.callback(self);
+            }
+        }
+    }
+
+    pub fn attack(&mut self, target: &mut GameObject) {
+        let my_power = self.fighter.map_or(0, |fighter| fighter.power);
+        let target_defense = target.fighter.map_or(0, |fighter| fighter.defense);
+        let damage = my_power - target_defense;
+        if damage > 0 {
+            println!(
+                "{} attacks {} for {} hit points.",
+                self.name, target.name, damage
+            );
+            target.take_damage(damage);
+        } else {
+            println!(
+                "{} attacks {} but the attack is deflected by {}'s armor.",
+                self.name, target.name, target.name
+            );
+        }
     }
 }
 
@@ -73,15 +107,17 @@ pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, game_objects: &mut [
     // and as soon as it finds one, it returns its index in the collection
     // (in our case a vec of GameObject).
     // Notice: It’s possible no match will be found, so it actually returns Option<usize> here.
-    let target_index = game_objects.iter().position(|game_object| game_object.get_position() == (x, y));
+    let target_index = game_objects
+        .iter()
+        .position(|game_object|
+            game_object.fighter.is_some()
+                && game_object.get_position() == (x, y));
 
     // attack if target found, else try to move
     match target_index {
         Some(target_index) => {
-            println!(
-                "The {} laughs at your puny attempt to attack!",
-                game_objects[target_index].name
-            );
+            let (player, target) = mut_two(PLAYER, target_index, game_objects);
+            player.attack(target);
         }
         None => {
             move_by(PLAYER, dx, dy, &game.map, game_objects);
@@ -112,3 +148,4 @@ pub fn is_blocked(x: i32, y: i32, map: &Map, game_objects: &[GameObject]) -> boo
         .iter()
         .any(|game_object| game_object.blocks_tile && game_object.get_position() == (x, y))
 }
+

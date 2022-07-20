@@ -117,13 +117,38 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], rec
                 tcod.console.set_char_background(x, y, color, BackgroundFlag::Set);
             }
         }
+    }
 
-        // draw all the objects in the list that are within the FOV:
-        for game_object in game_objects {
-            if tcod.fov.is_in_fov(game_object.x, game_object.y) {
-                game_object.draw(&mut tcod.console);
-            }
-        }
+    // Instead of going through the objects list we clone it into a mutable vector
+    // (render_all is taking &[Object] so it can’t change the list directly, nor should it).
+    // Then we sort the vector such that all non-blocking objects come before all
+    // the blocking ones. Since we can’t have two blocking objects on the same tile,
+    // this will make sure that our player and monsters won’t get overwritten by corpses.
+    let mut to_draw: Vec<_> = game_objects
+        .iter()
+        // filter out game objects that arent within FOV since we're not going to render them.
+        .filter(|game_object| tcod.fov.is_in_fov(game_object.x, game_object.y))
+        .collect();
+    // sort so that non-blocking objects come first.
+    to_draw.sort_by(|game_object_1, game_object_2|
+        game_object_1.blocks_tile.cmp(&game_object_2.blocks_tile));
+
+    // draw all the objects in the list that are within the FOV:
+    for game_object in to_draw {
+        game_object.draw(&mut tcod.console);
+    }
+
+    // GUI
+    // show the players stats
+    tcod.root.set_default_foreground(WHITE);
+    if let Some(fighter) = game_objects[PLAYER].fighter {
+        tcod.root.clear();
+        tcod.root.print_ex(
+            1, SCREEN_HEIGHT - 2,
+            BackgroundFlag::None,
+            TextAlignment::Left,
+            format!("HP: {}/{}", fighter.hp, fighter.max_hp),
+        )
     }
 
     // blit the contents of "console" to the root console
@@ -163,6 +188,7 @@ fn main() {
         hp: 30,
         defense: 2,
         power: 5,
+        on_death: DeathCallback::Player,
     });
     let mut game_objects = vec![];
     game_objects.push(player);
