@@ -1,7 +1,7 @@
 use std::cmp;
 use rand::Rng;
 use tcod::colors;
-use crate::{GameObject, is_blocked, MAP_HEIGHT, MAP_WIDTH, PLAYER};
+use crate::{Ai, Fighter, GameObject, is_blocked, MAP_HEIGHT, MAP_WIDTH, move_toward, PLAYER, Tcod};
 use crate::tile::*;
 use crate::rect::*;
 
@@ -60,7 +60,7 @@ pub fn make_map(game_objects: &mut Vec<GameObject>) -> Map {
 
             if rooms.is_empty() {
                 // special case, place player in the first room
-                let mut player = &mut game_objects[PLAYER];
+                let player = &mut game_objects[PLAYER];
                 player.set_position(new_x, new_y);
             } else {
                 // connect to previous room with a tunnel
@@ -95,7 +95,7 @@ fn create_room(room: Rect, map: &mut Map) {
 fn create_h_tunnel(x1: i32, x2: i32, y: i32, map: &mut Map) {
     // horizontal tunnel. `min()` and `max()` are used in case `x1 > x2`
     let start = cmp::min(x1, x2);
-    let end = (cmp::max(x1, x2) + 1);
+    let end = cmp::max(x1, x2 + 1);
     for x in start..end {
         let x = x as usize;
         let y = y as usize;
@@ -106,7 +106,7 @@ fn create_h_tunnel(x1: i32, x2: i32, y: i32, map: &mut Map) {
 fn create_v_tunnel(y1: i32, y2: i32, x: i32, map: &mut Map) {
     // horizontal tunnel. `min()` and `max()` are used in case `y1 > y2`
     let start = cmp::min(y1, y2);
-    let end = (cmp::max(y1, y2) + 1);
+    let end = cmp::max(y1, y2) + 1;
     for y in start..end {
         let x = x as usize;
         let y = y as usize;
@@ -129,13 +129,47 @@ fn place_objects(room: Rect, map: &Map, game_objects: &mut Vec<GameObject>) {
             // Calling rand::random::<f32>() will produce an f32 number between 0.0 and 1.0
             let mut monster = if rand::random::<f32>() < 0.8 {
                 // 80% chance of an Ork
-                GameObject::new(x, y, 'o', "Orc", colors::DESATURATED_GREEN, true)
+                let mut orc = GameObject::new(x, y, 'o', "Orc", colors::DESATURATED_GREEN, true);
+                orc.fighter = Some(Fighter {
+                    max_hp: 10,
+                    hp: 10,
+                    defense: 0,
+                    power: 3,
+                });
+                orc.ai = Some(Ai::Basic);
+                orc
             } else {
                 // 20% chance of a Troll
-                GameObject::new(x, y, 'T', "Troll", colors::DARKER_GREEN, true)
+                let mut troll = GameObject::new(x, y, 'T', "Troll", colors::DARKER_GREEN, true);
+                troll.fighter = Some(Fighter {
+                    max_hp: 16,
+                    hp: 16,
+                    defense: 1,
+                    power: 4,
+                });
+                troll.ai = Some(Ai::Basic);
+                troll
             };
             monster.alive = true;
             game_objects.push(monster);
+        }
+    }
+}
+
+pub fn ai_take_turn(monster_index: usize, tcod: &Tcod, game: &Game, game_objects: &mut [GameObject]) {
+    // A basic monster takes its turn. If you can see it, it can see you!
+    let (monster_x, monster_y) = game_objects[monster_index].get_position();
+    if tcod.fov.is_in_fov(monster_x, monster_y) {
+        if game_objects[monster_index].distance_to(&game_objects[PLAYER]) >= 2.0 {
+            // move toward player if far away.
+            let (player_x, player_y) = game_objects[PLAYER].get_position();
+            move_toward(monster_index, player_x, player_y, &game.map, game_objects);
+        } else if game_objects[PLAYER].fighter.map_or(false, |fighter| fighter.hp > 0) {
+            // close enough and player is alive
+            let monster = &game_objects[monster_index];
+            println!(
+                "The attack of the evil {} bounces off your shiny metal armor!", monster.name
+            );
         }
     }
 }

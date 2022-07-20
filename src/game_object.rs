@@ -2,6 +2,7 @@ use tcod::colors::*;
 use tcod::console::*;
 use crate::{Game, PLAYER};
 use crate::Map;
+use crate::fighter::*;
 
 // This is a generic object: the player, a monster, an item, the stairs...
 // It's always represented by a character on screen.
@@ -14,6 +15,8 @@ pub struct GameObject {
     pub color: Color,
     pub blocks_tile: bool,
     pub alive: bool,
+    pub fighter: Option<Fighter>,
+    pub ai: Option<Ai>,
 }
 
 impl GameObject {
@@ -26,6 +29,8 @@ impl GameObject {
             color,
             blocks_tile,
             alive: false,
+            fighter: None,
+            ai: None,
         }
     }
 
@@ -41,6 +46,12 @@ impl GameObject {
     pub fn set_position(&mut self, x: i32, y: i32) {
         self.x = x;
         self.y = y;
+    }
+
+    pub fn distance_to(&self, other: &GameObject) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
     }
 }
 
@@ -78,6 +89,19 @@ pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, game_objects: &mut [
     }
 }
 
+pub fn move_toward(index: usize, target_x: i32, target_y: i32, map: &Map, game_objects: &mut [GameObject]) {
+    // vector from this object to the target, and distance.
+    let dx = target_x - game_objects[index].x;
+    let dy = target_y - game_objects[index].y;
+    let distance = ((dx.pow(2) + dy.pow(2)) as f32).sqrt();
+
+    // normalize it to length 1 (preserving direction), then round it and
+    // convert to integer so the movement is restricted to the map grid.
+    let dx = (dx as f32 / distance).round() as i32;
+    let dy = (dy as f32 / distance).round() as i32;
+    move_by(index, dx, dy, map, game_objects);
+}
+
 // really is_blocked_or_occupied
 pub fn is_blocked(x: i32, y: i32, map: &Map, game_objects: &[GameObject]) -> bool {
     // first check the map for blocking tiles:
@@ -86,5 +110,5 @@ pub fn is_blocked(x: i32, y: i32, map: &Map, game_objects: &[GameObject]) -> boo
     // check for any GameObjects for blocking game objects:
     game_objects
         .iter()
-        .any(|mut game_object| game_object.blocks_tile && game_object.get_position() == (x, y))
+        .any(|game_object| game_object.blocks_tile && game_object.get_position() == (x, y))
 }

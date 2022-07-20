@@ -2,10 +2,12 @@ mod game_object;
 mod tile;
 mod game;
 mod rect;
+mod fighter;
 
 use tcod::colors::*;
 use tcod::console::*;
 use tcod::map::{FovAlgorithm, Map as FovMap};
+use crate::fighter::*;
 use crate::game::*;
 use crate::game_object::*;
 
@@ -28,7 +30,7 @@ const COLOR_LIGHT_GROUND: Color = Color { r: 200, g: 180, b: 50 };
 
 const PLAYER: usize = 0;
 
-struct Tcod {
+pub struct Tcod {
     root: Root,
     // Everything is drawn to the root console (eventually).
     console: Offscreen,
@@ -56,21 +58,21 @@ fn handle_keys(tcod: &mut Tcod, game: &Game, game_objects: &mut [GameObject]) ->
             Exit
         }
         // Movement Keys
-        (Key { code: Up, .. }, _, player_alive) => {
+        (Key { code: Up, .. }, _, true) => {
             player_move_or_attack(0, -1, &game, game_objects);
             TookTurn
         }
         // The two dots at the end mean "I don’t care about the other fields".
         // If it wasn’t there, it would not compile until you specified values for every field of the Key struct.
-        (Key { code: Down, .. }, _, player_alive) => {
+        (Key { code: Down, .. }, _, true) => {
             player_move_or_attack(0, 1, &game, game_objects);
             TookTurn
         }
-        (Key { code: Left, .. }, _, player_alive) => {
+        (Key { code: Left, .. }, _, true) => {
             player_move_or_attack(-1, 0, &game, game_objects);
             TookTurn
         }
-        (Key { code: Right, .. }, _, player_alive) => {
+        (Key { code: Right, .. }, _, true) => {
             player_move_or_attack(1, 0, &game, game_objects);
             TookTurn
         }
@@ -156,6 +158,12 @@ fn main() {
     // Create player and add to list of game objects. Position will be set in 'make_map(...)'.
     let mut player = GameObject::new(0, 0, '@', "Player", WHITE, false);
     player.alive = true;
+    player.fighter = Some(Fighter {
+        max_hp: 30,
+        hp: 30,
+        defense: 2,
+        power: 5,
+    });
     let mut game_objects = vec![];
     game_objects.push(player);
 
@@ -199,14 +207,19 @@ fn main() {
 
         if game_objects[PLAYER].alive && player_action != PlayerAction::DidntTakeTurn {
             // monsters take their turn
-            for game_object in &game_objects {
-                // only if object is not the player.
-                // The as *const _ bit is there to do a pointer comparison.
-                // Rust’s equality operators (== and !=) test for value equality,
-                // but we haven’t implemented that for Object and we don’t care anyway,
-                // we just want to make sure to not process player here.
-                if (game_object as *const _) != (&game_objects[PLAYER] as *const _) {
-                    println!("The {} growls!", game_object.name);
+            // for game_object in &game_objects {
+            //     // only if object is not the player.
+            //     // The as *const _ bit is there to do a pointer comparison.
+            //     // Rust’s equality operators (== and !=) test for value equality,
+            //     // but we haven’t implemented that for Object and we don’t care anyway,
+            //     // we just want to make sure to not process player here.
+            //     if (game_object as *const _) != (&game_objects[PLAYER] as *const _) {
+            //         println!("The {} growls!", game_object.name);
+            //     }
+            // }
+            for index in 0..game_objects.len() {
+                if game_objects[index].ai.is_some() {
+                    ai_take_turn(index, &tcod, &game, &mut game_objects);
                 }
             }
         }
