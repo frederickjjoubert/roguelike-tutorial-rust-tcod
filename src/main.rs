@@ -26,6 +26,8 @@ const COLOR_LIGHT_WALL: Color = Color { r: 130, g: 110, b: 50 };
 const COLOR_DARK_GROUND: Color = Color { r: 50, g: 50, b: 150 };
 const COLOR_LIGHT_GROUND: Color = Color { r: 200, g: 180, b: 50 };
 
+const PLAYER: usize = 0;
+
 struct Tcod {
     root: Root,
     // Everything is drawn to the root console (eventually).
@@ -34,39 +36,55 @@ struct Tcod {
     fov: FovMap,
 }
 
-fn handle_keys(tcod: &mut Tcod, game: &Game, player: &mut GameObject) -> bool {
+fn handle_keys(tcod: &mut Tcod, game: &Game, game_objects: &mut [GameObject]) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
+    use crate::game::PlayerAction::*;
 
     let key = tcod.root.wait_for_keypress(true);
+    let player_alive = game_objects[PLAYER].alive;
 
-    match key {
+    match (key, key.text(), player_alive) {
         // Fullscreen
-        Key { code: Enter, alt: true, .. } => {
+        (Key { code: Enter, alt: true, .. }, _, _, ) => {
             let fullscreen = tcod.root.is_fullscreen();
             tcod.root.set_fullscreen(!fullscreen);
+            DidntTakeTurn
         }
         // Exit
-        Key { code: Escape, .. } => {
-            return true;
+        (Key { code: Escape, .. }, _, _) => {
+            Exit
         }
         // Movement Keys
-        Key { code: Up, .. } => player.move_by(0, -1, game), // The two dots at the end mean "I don’t care about the other fields". If it wasn’t there, it would not compile until you specified values for every field of the Key struct.
-        Key { code: Down, .. } => player.move_by(0, 1, game),
-        Key { code: Left, .. } => player.move_by(-1, 0, game),
-        Key { code: Right, .. } => player.move_by(1, 0, game),
+        (Key { code: Up, .. }, _, player_alive) => {
+            move_by(PLAYER, 0, -1, &game.map, game_objects);
+            TookTurn
+        }
+        // The two dots at the end mean "I don’t care about the other fields".
+        // If it wasn’t there, it would not compile until you specified values for every field of the Key struct.
+        (Key { code: Down, .. }, _, player_alive) => {
+            move_by(PLAYER, 0, 1, &game.map, game_objects);
+            TookTurn
+        }
+        (Key { code: Left, .. }, _, player_alive) => {
+            move_by(PLAYER, -1, 0, &game.map, game_objects);
+            TookTurn
+        }
+        (Key { code: Right, .. }, _, player_alive) => {
+            move_by(PLAYER, 1, 0, &game.map, game_objects);
+            TookTurn
+        }
 
         // Everything else
-        _ => {} // This means "everything else" => "nothing happens"
+        // _ => {} // This means "everything else" => "nothing happens"
+        _ => DidntTakeTurn
     }
-
-    false
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], recompute_fov: bool) {
     // recompute FOV if needed
     if recompute_fov {
-        let player = &game_objects[0];
+        let player = &game_objects[PLAYER];
         tcod.fov.compute_fov(player.x, player.y, SIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO);
     }
 
@@ -76,7 +94,7 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], rec
             let visible = tcod.fov.is_in_fov(x, y);
             let x_index = x as usize;
             let y_index = y as usize;
-            let blocks_sight = game.map[x_index][y_index].block_sight;
+            let blocks_sight = game.map[x_index][y_index].is_sight_blocked;
 
             let color = match (visible, blocks_sight) {
                 // outside FOV
@@ -87,7 +105,7 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], rec
                 (true, false) => COLOR_LIGHT_GROUND
             };
 
-            let explored = &mut game.map[x_index][y_index].explored;
+            let explored = &mut game.map[x_index][y_index].is_explored;
             if visible {
                 // if it's visible, mark it as explored
                 *explored = true;
@@ -135,14 +153,15 @@ fn main() {
     // create Tcod
     let mut tcod = Tcod { root, console, fov: fov_map };
 
-    // place the player and add these game objects to the game objects list.
-    let player = GameObject::new(25, 23, '@', WHITE);
-    let npc = GameObject::new(27, 23, '@', YELLOW);
-    let mut game_objects = [player, npc];
+    // Create player and add to list of game objects. Position will be set in 'make_map(...)'.
+    let mut player = GameObject::new(0, 0, '@', "Player", WHITE, false);
+    player.alive = true;
+    let mut game_objects = vec![];
+    game_objects.push(player);
 
     let mut game = Game {
         // generate map (at this point it's not drawn to the screen)
-        map: make_map(&mut game_objects[0]),
+        map: make_map(&mut game_objects),
     };
 
     // populate the FOV map
@@ -151,8 +170,8 @@ fn main() {
             tcod.fov.set(
                 x,
                 y,
-                !game.map[x as usize][y as usize].block_sight,
-                !game.map[x as usize][y as usize].blocked,
+                !game.map[x as usize][y as usize].is_sight_blocked,
+                !game.map[x as usize][y as usize].is_blocked,
             )
         }
     }
@@ -166,17 +185,15 @@ fn main() {
         tcod.console.clear();
 
         // Render the screen and recompute FOV if needed.
-        let player = &game_objects[0];
-        let fov_recompute = previous_player_position != (player.x, player.y);
+        let fov_recompute = previous_player_position != game_objects[PLAYER].get_position();
         render_all(&mut tcod, &mut game, &game_objects, fov_recompute);
 
         // Draw everything at once.
         tcod.root.flush();
 
         // Handle Input and Exit if needed.
-        let player = &mut game_objects[0];
-        previous_player_position = (player.x, player.y);
-        let exit = handle_keys(&mut tcod, &game, player);
-        if exit { break; }
+        previous_player_position = game_objects[PLAYER].get_position();
+        let exit = handle_keys(&mut tcod, &game, &mut game_objects);
+        if exit == PlayerAction::Exit { break; }
     }
 }
