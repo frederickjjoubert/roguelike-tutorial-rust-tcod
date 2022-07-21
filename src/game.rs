@@ -2,6 +2,7 @@ use std::cmp;
 use rand::Rng;
 use tcod::colors;
 use crate::{Ai, DeathCallback, Fighter, GameObject, is_blocked, MAP_HEIGHT, MAP_WIDTH, move_toward, PLAYER, Tcod};
+use crate::messages::Messages;
 use crate::tile::*;
 use crate::rect::*;
 
@@ -22,6 +23,7 @@ pub enum PlayerAction {
 
 pub struct Game {
     pub map: Map,
+    pub messages: Messages,
 }
 
 pub fn make_map(game_objects: &mut Vec<GameObject>) -> Map {
@@ -158,7 +160,7 @@ fn place_objects(room: Rect, map: &Map, game_objects: &mut Vec<GameObject>) {
     }
 }
 
-pub fn ai_take_turn(monster_index: usize, tcod: &Tcod, game: &Game, game_objects: &mut [GameObject]) {
+pub fn ai_take_turn(monster_index: usize, tcod: &Tcod, game: &mut Game, game_objects: &mut [GameObject]) {
     // A basic monster takes its turn. If you can see it, it can see you!
     let (monster_x, monster_y) = game_objects[monster_index].get_position();
     if tcod.fov.is_in_fov(monster_x, monster_y) {
@@ -169,7 +171,7 @@ pub fn ai_take_turn(monster_index: usize, tcod: &Tcod, game: &Game, game_objects
         } else if game_objects[PLAYER].fighter.map_or(false, |fighter| fighter.hp > 0) {
             // close enough and player is alive
             let (monster, player) = mut_two(monster_index, PLAYER, game_objects);
-            monster.attack(player);
+            monster.attack(player, game);
         }
     }
 }

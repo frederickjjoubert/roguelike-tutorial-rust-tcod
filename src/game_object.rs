@@ -56,7 +56,7 @@ impl GameObject {
         ((dx.pow(2) + dy.pow(2)) as f32).sqrt()
     }
 
-    pub fn take_damage(&mut self, damage: i32) {
+    pub fn take_damage(&mut self, damage: i32, game: &mut Game) {
         if let Some(fighter) = self.fighter.as_mut() {
             if damage > 0 {
                 fighter.hp -= damage
@@ -65,26 +65,30 @@ impl GameObject {
         if let Some(fighter) = self.fighter {
             if fighter.hp <= 0 {
                 self.alive = false;
-                fighter.on_death.callback(self);
+                fighter.on_death.callback(self, game);
             }
         }
     }
 
-    pub fn attack(&mut self, target: &mut GameObject) {
+    pub fn attack(&mut self, target: &mut GameObject, game: &mut Game) {
         let my_power = self.fighter.map_or(0, |fighter| fighter.power);
         let target_defense = target.fighter.map_or(0, |fighter| fighter.defense);
         let damage = my_power - target_defense;
         if damage > 0 {
-            println!(
-                "{} attacks {} for {} hit points.",
-                self.name, target.name, damage
-            );
-            target.take_damage(damage);
+            game.messages.add(
+                format!(
+                    "{} attacks {} for {} hit points.",
+                    self.name, target.name, damage
+                ),
+                YELLOW);
+            target.take_damage(damage, game);
         } else {
-            println!(
-                "{} attacks {} but the attack is deflected by {}'s armor.",
-                self.name, target.name, target.name
-            );
+            game.messages.add(
+                format!(
+                    "{} attacks {} but the attack is deflected by {}'s armor.",
+                    self.name, target.name, target.name
+                ),
+                YELLOW);
         }
     }
 }
@@ -98,7 +102,7 @@ pub fn move_by(index: usize, dx: i32, dy: i32, map: &Map, game_objects: &mut [Ga
     }
 }
 
-pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, game_objects: &mut [GameObject]) {
+pub fn player_move_or_attack(dx: i32, dy: i32, game: &mut Game, game_objects: &mut [GameObject]) {
     let (x, y) = game_objects[PLAYER].get_position();
     let (x, y) = (x + dx, y + dy);
 
@@ -117,7 +121,7 @@ pub fn player_move_or_attack(dx: i32, dy: i32, game: &Game, game_objects: &mut [
     match target_index {
         Some(target_index) => {
             let (player, target) = mut_two(PLAYER, target_index, game_objects);
-            player.attack(target);
+            player.attack(target, game);
         }
         None => {
             move_by(PLAYER, dx, dy, &game.map, game_objects);

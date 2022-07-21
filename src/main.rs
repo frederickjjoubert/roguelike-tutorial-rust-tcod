@@ -3,6 +3,8 @@ mod tile;
 mod game;
 mod rect;
 mod fighter;
+mod gui;
+mod messages;
 
 use tcod::colors::*;
 use tcod::console::*;
@@ -10,14 +12,27 @@ use tcod::map::{FovAlgorithm, Map as FovMap};
 use crate::fighter::*;
 use crate::game::*;
 use crate::game_object::*;
+use crate::gui::render_bar;
+use crate::messages::Messages;
 
 const FPS_LIMIT: i32 = 100;
 
 const SCREEN_WIDTH: i32 = 80;
 const SCREEN_HEIGHT: i32 = 50;
 
+// GUI
+const BAR_WIDTH: i32 = 20;
+const PANEL_HEIGHT: i32 = 7;
+const PANEL_Y: i32 = SCREEN_HEIGHT - PANEL_HEIGHT;
+
+// This is so it appears to the right of the health bar, and fills up the rest of the space.
+const MSG_X: i32 = BAR_WIDTH + 2;
+const MSG_WIDTH: i32 = SCREEN_WIDTH - BAR_WIDTH - 2;
+const MSG_HEIGHT: usize = PANEL_HEIGHT as usize - 1;
+
+// Game Map
 const MAP_WIDTH: i32 = 80;
-const MAP_HEIGHT: i32 = 45;
+const MAP_HEIGHT: i32 = 43;
 
 const FOV_ALGO: FovAlgorithm = FovAlgorithm::Basic;
 const FOV_LIGHT_WALLS: bool = true;
@@ -34,11 +49,13 @@ pub struct Tcod {
     root: Root,
     // Everything is drawn to the root console (eventually).
     console: Offscreen,
+    // We'll put our GUI here
+    panel: Offscreen,
     // This represents the map only.
     fov: FovMap,
 }
 
-fn handle_keys(tcod: &mut Tcod, game: &Game, game_objects: &mut [GameObject]) -> PlayerAction {
+fn handle_keys(tcod: &mut Tcod, game: &mut Game, game_objects: &mut [GameObject]) -> PlayerAction {
     use tcod::input::Key;
     use tcod::input::KeyCode::*;
     use crate::game::PlayerAction::*;
@@ -59,21 +76,21 @@ fn handle_keys(tcod: &mut Tcod, game: &Game, game_objects: &mut [GameObject]) ->
         }
         // Movement Keys
         (Key { code: Up, .. }, _, true) => {
-            player_move_or_attack(0, -1, &game, game_objects);
+            player_move_or_attack(0, -1, game, game_objects);
             TookTurn
         }
         // The two dots at the end mean "I don’t care about the other fields".
         // If it wasn’t there, it would not compile until you specified values for every field of the Key struct.
         (Key { code: Down, .. }, _, true) => {
-            player_move_or_attack(0, 1, &game, game_objects);
+            player_move_or_attack(0, 1, game, game_objects);
             TookTurn
         }
         (Key { code: Left, .. }, _, true) => {
-            player_move_or_attack(-1, 0, &game, game_objects);
+            player_move_or_attack(-1, 0, game, game_objects);
             TookTurn
         }
         (Key { code: Right, .. }, _, true) => {
-            player_move_or_attack(1, 0, &game, game_objects);
+            player_move_or_attack(1, 0, game, game_objects);
             TookTurn
         }
 
@@ -84,13 +101,14 @@ fn handle_keys(tcod: &mut Tcod, game: &Game, game_objects: &mut [GameObject]) ->
 }
 
 fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], recompute_fov: bool) {
-    // recompute FOV if needed
+    // Recompute FOV (if needed).
     if recompute_fov {
         let player = &game_objects[PLAYER];
         tcod.fov.compute_fov(player.x, player.y, SIGHT_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO);
     }
 
-    // go through all tiles, and set their background color:
+    // Render Tiles
+    // Go through all tiles, and set their background color:
     for y in 0..MAP_HEIGHT {
         for x in 0..MAP_WIDTH {
             let visible = tcod.fov.is_in_fov(x, y);
@@ -139,26 +157,63 @@ fn render_all(tcod: &mut Tcod, game: &mut Game, game_objects: &[GameObject], rec
     }
 
     // GUI
-    // show the players stats
-    tcod.root.set_default_foreground(WHITE);
-    if let Some(fighter) = game_objects[PLAYER].fighter {
-        tcod.root.clear();
-        tcod.root.print_ex(
-            1, SCREEN_HEIGHT - 2,
-            BackgroundFlag::None,
-            TextAlignment::Left,
-            format!("HP: {}/{}", fighter.hp, fighter.max_hp),
-        )
+    // Prepare to render the GUI Panel
+    tcod.panel.set_default_background(BLACK);
+    tcod.panel.clear();
+    // Show the players stats
+    let hp = game_objects[PLAYER]
+        .fighter
+        .map_or(0, |fighter| fighter.hp);
+    let max_hp = game_objects[PLAYER]
+        .fighter
+        .map_or(0, |fighter| fighter.max_hp);
+    render_bar(
+        &mut tcod.panel,
+        1, 1,
+        BAR_WIDTH,
+        "HP",
+        hp,
+        max_hp,
+        LIGHT_RED,
+        DARKER_RED,
+    );
+    // Print the Messages
+    let mut y = MSG_HEIGHT as i32;
+    // We’re going through the messages backwards (starting with the last message),
+    // because we don’t know if we get to print all.
+    // So we first calculate the height of the message (in case it gets wrapped),
+    // we draw it at the corresponding y position by subtracting the height and then repeat.
+    for &(ref msg, color) in game.messages.iter().rev() {
+        let msg_height = tcod.panel.get_height_rect(MSG_X, y, MSG_WIDTH, 0, msg);
+        y -= msg_height;
+        if y < 0 {
+            break;
+        }
+        tcod.panel.set_default_foreground(color);
+        tcod.panel.print_rect(MSG_X, y, MSG_WIDTH, 0, msg);
     }
 
-    // blit the contents of "console" to the root console
-    blit(&tcod.console,
-         (0, 0),
-         (MAP_WIDTH, MAP_HEIGHT),
-         &mut tcod.root,
-         (0, 0),
-         1.0,
-         1.0);
+    // Blit the contents of "console" to the root console.
+    blit(
+        &tcod.console,
+        (0, 0),
+        (MAP_WIDTH, MAP_HEIGHT),
+        &mut tcod.root,
+        (0, 0),
+        1.0,
+        1.0,
+    );
+
+    // Blit the contents of "panel" to the root console.
+    blit(
+        &tcod.panel,
+        (0, 0),
+        (SCREEN_WIDTH, PANEL_Y),
+        &mut tcod.root,
+        (0, PANEL_Y),
+        1.0,
+        1.0,
+    );
 }
 
 fn main() {
@@ -175,10 +230,11 @@ fn main() {
         .title("Rusty Roguelike")
         .init();
     let console = Offscreen::new(MAP_WIDTH, MAP_HEIGHT);
+    let panel = Offscreen::new(SCREEN_WIDTH, PANEL_HEIGHT);
     let fov_map: FovMap = FovMap::new(MAP_WIDTH, MAP_HEIGHT);
 
     // create Tcod
-    let mut tcod = Tcod { root, console, fov: fov_map };
+    let mut tcod = Tcod { root, console, panel, fov: fov_map };
 
     // Create player and add to list of game objects. Position will be set in 'make_map(...)'.
     let mut player = GameObject::new(0, 0, '@', "Player", WHITE, false);
@@ -196,6 +252,7 @@ fn main() {
     let mut game = Game {
         // generate map (at this point it's not drawn to the screen)
         map: make_map(&mut game_objects),
+        messages: Messages::new(),
     };
 
     // populate the FOV map
@@ -213,6 +270,12 @@ fn main() {
     // force FOV "recompute" first time through the game loop
     let mut previous_player_position = (-1, -1);
 
+    // test - a warm welcoming message
+    game.messages.add(
+        "Welcome to the dungeon! Prepare to die.",
+        RED,
+    );
+
     // Game Loop
     while !tcod.root.window_closed() {
         // Clear the console from the previous frame.
@@ -228,7 +291,7 @@ fn main() {
         // Handle Input and Exit if needed.
         previous_player_position = game_objects[PLAYER].get_position();
         // player turn
-        let player_action = handle_keys(&mut tcod, &game, &mut game_objects);
+        let player_action = handle_keys(&mut tcod, &mut game, &mut game_objects);
         if player_action == PlayerAction::Exit { break; }
 
         if game_objects[PLAYER].alive && player_action != PlayerAction::DidntTakeTurn {
@@ -245,7 +308,7 @@ fn main() {
             // }
             for index in 0..game_objects.len() {
                 if game_objects[index].ai.is_some() {
-                    ai_take_turn(index, &tcod, &game, &mut game_objects);
+                    ai_take_turn(index, &tcod, &mut game, &mut game_objects);
                 }
             }
         }
